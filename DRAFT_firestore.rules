@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Globals & Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isVerified() { return request.auth.token.email_verified == true; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+
+    // 2. Profile Rules
+    function isValidProfile(data) {
+      return data.keys().hasAll(['email']) 
+        && data.email is string && data.email.size() <= 256
+        && (!('name' in data) || (data.name is string && data.name.size() <= 100))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500))
+        && (!('favorites' in data) || (data.favorites is list && data.favorites.size() <= 50));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidProfile(incoming());
+      allow update: if isOwner(userId) && isValidProfile(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'favorites']);
+    }
+
+    // 3. Restaurant Rules
+    function isValidRestaurant(data) {
+      return data.keys().hasAll(['name', 'rating', 'image'])
+        && data.name is string && data.name.size() <= 100
+        && data.rating is number && data.rating >= 0 && data.rating <= 5
+        && data.image is string && data.image.size() <= 1000;
+    }
+
+    match /restaurants/{restaurantId} {
+      allow read: if isValidId(restaurantId);
+      allow create: if isAdmin() && isValidRestaurant(incoming());
+      allow update: if isAdmin() && isValidRestaurant(incoming());
+      
+      match /menu/{itemId} {
+        allow read: if isValidId(itemId);
+        allow write: if isAdmin();
+      }
+    }
+
+    // 4. Order Rules
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'restaurantId', 'items', 'status', 'total', 'createdAt'])
+        && data.userId == request.auth.uid
+        && data.status in ['pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled']
+        && data.total is number && data.total >= 0
+        && data.items is list && data.items.size() > 0 && data.items.size() <= 50
+        && data.createdAt == request.time
+        && exists(/databases/$(database)/documents/restaurants/$(data.restaurantId));
+    }
+
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.driverId == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && isValidOrder(incoming());
+      allow update: if isSignedIn() && (
+        // User can cancel if pending
+        (isOwner(existing().userId) && existing().status == 'pending' && incoming().status == 'cancelled' && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+        // Admin/System can update status
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'driverId', 'updatedAt']) && incoming().updatedAt == request.time)
+      );
+    }
+    
+    // 5. Admin collection (Read only by admins, write only by cloud console)
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+    }
+  }
+}

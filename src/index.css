@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
+@import "leaflet/dist/leaflet.css";
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-vibrant-orange: #FF5C35;
+  --color-vibrant-yellow: #FFB400;
+  --color-vibrant-teal: #06D6A0;
+  --color-vibrant-pink: #EF476F;
+  --color-vibrant-beige: #FEF9F3;
+  --color-vibrant-tan: #F3E5D8;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-vibrant-beige text-slate-800 antialiased selection:bg-orange-100 selection:text-vibrant-orange;
+  }
+}
+
+@layer components {
+  .btn-vibrant {
+    @apply px-8 py-4 bg-vibrant-orange text-white rounded-[1.25rem] font-black text-[10px] uppercase tracking-[0.2em] hover:bg-black transition-all duration-300 shadow-xl shadow-vibrant-orange/20 active:scale-95 flex items-center justify-center gap-2;
+  }
+
+  .card-vibrant {
+    @apply bg-white rounded-[2rem] border-2 border-vibrant-tan shadow-sm hover:shadow-2xl hover:border-vibrant-yellow/40 transition-all duration-300 overflow-hidden;
+  }
+
+  .input-vibrant {
+    @apply w-full bg-white border-2 border-vibrant-tan rounded-[1.25rem] px-5 py-3 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-vibrant-orange/10 focus:border-vibrant-orange transition-all placeholder:text-slate-400 placeholder:font-medium;
+  }
+}
+

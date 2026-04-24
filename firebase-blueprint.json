@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "LogisticsAgency": {
+      "title": "LogisticsAgency",
+      "description": "A logistics or courier agency like VRL or SRS.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "rating": { "type": "number" },
+        "specialties": { "type": "array", "items": { "type": "string" } },
+        "hubsCount": { "type": "number" },
+        "image": { "type": "string" },
+        "headquarters": { "type": "string" }
+      },
+      "required": ["name", "rating", "image"]
+    },
+    "ShipmentService": {
+      "title": "ShipmentService",
+      "description": "Types of shipment services offered (e.g., Express, Cargo).",
+      "type": "object",
+      "properties": {
+        "agencyId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "basePrice": { "type": "number" },
+        "weightCategory": { "type": "string" }
+      },
+      "required": ["agencyId", "name", "basePrice"]
+    },
+    "Shipment": {
+      "title": "Shipment",
+      "description": "A parcel shipment booked by a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "parcelType": { "type": "string" },
+        "weight": { "type": "number" },
+        "sender": { "type": "object" },
+        "receiver": { "type": "object" },
+        "status": { "type": "string", "enum": ["booked", "picked_up", "at_hub", "in_transit", "out_for_delivery", "delivered", "exception"] },
+        "totalCost": { "type": "number" },
+        "preferredDeliveryDate": { "type": "string", "format": "date" },
+        "deliverySlot": { "type": "string", "enum": ["Morning", "Afternoon", "Evening"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "agencyId", "trackingNumber", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and settings.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "fcmTokens": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/agencies/{agencyId}": {
+      "schema": "LogisticsAgency",
+      "description": "Collection of logistics agencies."
+    },
+    "/agencies/{agencyId}/services": {
+      "schema": "ShipmentService",
+      "description": "Services offered by an agency."
+    },
+    "/shipments/{shipmentId}": {
+      "schema": "Shipment",
+      "description": "Collection of parcel shipments."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles."
+    }
+  }
+}

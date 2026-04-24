@@ -1,0 +1,8 @@
+{
+  "name": "SwiftDrop Logistics",
+  "description": "A professional parcel and cargo management platform for leading logistics agencies, featuring real-time tracking, hub updates, and shipment booking.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

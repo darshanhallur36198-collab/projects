@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isVerified() { return request.auth.token.email_verified == true; }
+    // Only include isAdmin if there is an admin feature.
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+
+    function isValidProfile(data) {
+      return data.keys().hasAll(['email', 'uid'])
+        && data.email is string && data.email.size() <= 256
+        && data.uid == request.auth.uid
+        && (!('name' in data) || (data.name is string && data.name.size() <= 100))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500))
+        && (!('favorites' in data) || (data.favorites is list && data.favorites.size() <= 100))
+        && (!('fcmTokens' in data) || (data.fcmTokens is list && data.fcmTokens.size() <= 20));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidProfile(incoming());
+      allow update: if isOwner(userId) && isValidProfile(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatar', 'favorites', 'fcmTokens']);
+    }
+
+    match /agencies/{agencyId} {
+      allow read: if isValidId(agencyId);
+      allow write: if isAdmin();
+      
+      match /services/{serviceId} {
+        allow read: if isValidId(serviceId);
+        allow write: if isAdmin();
+      }
+    }
+
+    function isValidShipment(data) {
+      return data.keys().hasAll(['userId', 'agencyId', 'trackingNumber', 'status', 'totalCost', 'createdAt'])
+        && data.userId == request.auth.uid
+        && data.status in ['booked', 'picked_up', 'at_hub', 'in_transit', 'out_for_delivery', 'delivered', 'exception']
+        && data.totalCost is number && data.totalCost >= 0
+        && data.trackingNumber is string && data.trackingNumber.size() <= 50
+        && (!('preferredDeliveryDate' in data) || data.preferredDeliveryDate is string)
+        && (!('deliverySlot' in data) || data.deliverySlot in ['Morning', 'Afternoon', 'Evening']);
+    }
+
+    match /shipments/{shipmentId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidShipment(incoming());
+      // For demo purposes, we allow updates if Admin or Owner (Simulator)
+      // In production, status changes should be strictly controlled
+      allow update: if isSignedIn() && (
+        (isOwner(existing().userId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'exceptionDetails', 'driverLocation'])) ||
+        isAdmin()
+      );
+    }
+    
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+    }
+  }
+}
